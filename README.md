@@ -1,6 +1,6 @@
 # 4D EMR <> QuickBooks Online Integration Sync
 
-This project provides a sync bridge between a specific 4D EMR instance and a QuickBooks Online account for automated invoice management and financial synchronization. **It is designed for a single company's use, not as a multi-tenant SaaS solution.**
+This project provides a sync bridge between a specific 4D EMR instance and a QuickBooks Online account for automated invoice management and financial synchronization. **It is designed for a single company's use, not as a multi-tenant SaaS solution.** ... yet
 
 ## Overview
 
@@ -13,6 +13,7 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
     - 4D EMR API
     - QuickBooks Online API
 - A server environment to host the FastAPI application.
+- Redis 6.0.16+ 
 - A reverse proxy (like Nginx) is recommended for production.
 - A process manager (like systemd) is recommended for production.
 
@@ -20,8 +21,8 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repo-url>
-    cd <your-repo-directory>
+    git clone https://github.com/Sal-Romano/4d.qbo
+    cd 4d.qbo
     ```
 
 2.  **Install dependencies:**
@@ -30,20 +31,11 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
     source .venv/bin/activate # Or .\.venv\Scripts\activate on Windows
     pip install -r requirements.txt
     ```
-    *Note: Add `fastapi`, `uvicorn`, and any other necessary packages to `requirements.txt`.* Update it with:
-    ```
-    python-dotenv
-    quickbooks-python
-    requests
-    intuit-oauth
-    fastapi
-    uvicorn[standard]
-    ```
 
 3.  **Configure Environment Variables:**
     - Copy `.env-sample` to `.env`.
     - Fill in the required credentials for 4D EMR (`4D_*`) and QuickBooks Online (`QBO_*`).
-    - Set the `PORT` for the FastAPI application (default is `9742`).
+    - Set the `API_PORT` for the FastAPI application (default is `9742`).
     - Generate a secure `API_KEY` for accessing protected API endpoints.
 
 4.  **Initial QuickBooks OAuth Setup:**
@@ -66,11 +58,9 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 │   ├── qbo_manager.py
 │   ├── qbo_callback_server.py
 │   └── 4d_manager.py
-├── data/                   # Stores persistent data like OAuth tokens (gitignored)
-├── docs/                   # Documentation (if any)
-├── logs/                   # Log files (gitignored)
-├── .venv/                  # Python virtual environment (gitignored)
-├── .env                    # Environment variables (gitignored)
+├── data/                   # Stores persistent data like OAuth tokens
+├── docs/                   # Documentation
+├── logs/                   # Log files 
 ├── .env-sample             # Sample environment file
 ├── requirements.txt        # Python dependencies
 └── README.md               # This file
@@ -147,13 +137,5 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 
 - **`/status`** (GET): Public endpoint to check if the API is running.
 - **`/test`** (GET): Protected endpoint. Requires a header `secret: <API_KEY>` for authorization.
-
-## License
-
-This project is proprietary software.
-
-## Support
-
-Contact the project maintainer for support.
 
 

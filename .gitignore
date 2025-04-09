@@ -2,4 +2,4 @@
 .env
 .cursor
 data
-logs
+*.log
