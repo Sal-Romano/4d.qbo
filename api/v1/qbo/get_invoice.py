@@ -33,6 +33,9 @@ async def get_invoice(id: str = Query(..., description="The ID (DocNumber) of th
             'status': invoice['EmailStatus'],
             'last_modified_utc': datetime.fromisoformat(invoice['MetaData']['LastUpdatedTime']).astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         }
+    except HTTPException as http_exc:
+        # Re-raise HTTPException to ensure correct status code is returned
+        raise http_exc
     except Exception as e:
         logging.error(f"Error retrieving invoice: {str(e)}")
         raise HTTPException(

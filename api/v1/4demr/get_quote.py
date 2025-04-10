@@ -28,10 +28,10 @@ async def get_quote(id: str = Query(None), request: Request = None, secret: str 
         
         # Check for errors
         if "error" in quote_data:
-            logging.error(f"4D manager error: {quote_data['error']}")
+            logging.warning("Quote not found or error occurred")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Quote not found or error: {quote_data['error']}"
+                detail="Quote not found"
             )
             
         return quote_data
@@ -49,8 +49,10 @@ async def get_quote(id: str = Query(None), request: Request = None, secret: str 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to initialize 4D connection: {str(e)}"
         )
+    except HTTPException as http_exc:
+        # Re-raise HTTPException to ensure correct status code is returned
+        raise http_exc
     except Exception as e:
-        # Handle any other errors
         logging.error(f"Error getting quote: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

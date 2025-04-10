@@ -12,8 +12,12 @@ async def get_customer(display_name: str = Query(..., description="The display n
         manager = QBOManager()
         customer = manager.get_customer_by_display_name(display_name)
         if not customer:
+            logging.warning("Customer not found")
             raise HTTPException(status_code=404, detail="Customer not found")
         return customer
+    except HTTPException as http_exc:
+        # Re-raise HTTPException to ensure correct status code is returned
+        raise http_exc
     except Exception as e:
         logging.error(f"Error retrieving customer: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") 

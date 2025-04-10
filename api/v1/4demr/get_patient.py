@@ -27,11 +27,11 @@ async def get_patient(id: str = Query(None), request: Request = None, secret: st
         logging.info(f"Response received for patient ID: {id}")
         
         # Check for errors
-        if "error" in patient_data:
-            logging.error(f"4D manager error: {patient_data['error']}")
+        if not patient_data or "error" in patient_data:
+            logging.warning("Patient not found or error occurred")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Patient not found or error: {patient_data['error']}"
+                detail="Patient not found"
             )
             
         return patient_data
@@ -49,8 +49,10 @@ async def get_patient(id: str = Query(None), request: Request = None, secret: st
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to initialize 4D connection: {str(e)}"
         )
+    except HTTPException as http_exc:
+        # Re-raise HTTPException to ensure correct status code is returned
+        raise http_exc
     except Exception as e:
-        # Handle any other errors
         logging.error(f"Error getting patient: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
