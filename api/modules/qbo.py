@@ -10,6 +10,8 @@ from quickbooks.objects.customer import Customer
 from intuitlib.client import AuthClient
 from intuitlib.enums import Scopes
 import requests
+import logging
+import xml.etree.ElementTree as ET
 
 # Force reload environment variables
 load_dotenv(override=True)
@@ -135,4 +137,54 @@ class QBOManager:
             'primary_email': customer.PrimaryEmailAddr.Address if customer.PrimaryEmailAddr else None,
             'balance': float(customer.Balance) if customer.Balance else 0.0,
             'active': customer.Active
-        } 
+        }
+
+    def send_batch_request(self, batch_payload):
+        """Send a batch request to the QuickBooks Online API."""
+        self._load_tokens()
+        client = QuickBooks(
+            auth_client=self.auth_client,
+            environment=self.environment,
+            company_id=self.auth_client.realm_id
+        )
+        url = f"https://quickbooks.api.intuit.com/v3/company/{client.company_id}/batch"
+        headers = {
+            'Authorization': f'Bearer {client.auth_client.access_token}',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url, headers=headers, json=batch_payload)
+        
+        # Log the status code and raw response content
+        logging.info(f"Response status code: {response.status_code}")
+        logging.info(f"Response URL: {response.url}")
+        
+        response.raise_for_status()
+        
+        # Parse the XML response
+        root = ET.fromstring(response.text)
+        batch_item_responses = []
+        
+        for batch_item in root.findall('.//{http://schema.intuit.com/finance/v3}BatchItemResponse'):
+            bId = batch_item.get('bId')
+            fault = batch_item.find('.//{http://schema.intuit.com/finance/v3}Fault')
+            if fault is None:
+                # Success case
+                entity = batch_item[0]  # Get the first child element, which is the entity
+                entity_info = {child.tag.split('}')[1]: child.text for child in entity}
+                status = 'success'
+                error = None
+            else:
+                # Failure case
+                error_detail = fault.find('.//{http://schema.intuit.com/finance/v3}Detail').text
+                entity_info = {}
+                status = 'failed'
+                error = error_detail
+            
+            batch_item_responses.append({
+                'bId': bId,
+                'status': status,
+                'error': error,
+                'info': entity_info
+            })
+        
+        return {'BatchItemResponse': batch_item_responses} 
