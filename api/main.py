@@ -61,7 +61,7 @@ async def check_auth_middleware(request: Request, call_next):
         logging.warning(f"Unauthorized access attempt: {request.url.path}")
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"detail": "Unauthorized: API key required"}
+            content={"detail": "Unauthorized"}
         )
     
     # Continue with the request if authorized
