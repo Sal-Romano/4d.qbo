@@ -38,7 +38,7 @@ class QBOManager:
         self.client_secret = CLIENT_SECRET
         self.environment = ENVIRONMENT
         self.redirect_uri = REDIRECT_URI
-        self.token_path = Path('data/qbo_token.json')
+        self.token_path = Path('api/data/qbo_token.json')
         
         print(f"Debug - Using redirect URI: {self.redirect_uri}")
         print(f"Debug - Environment: {self.environment}")
