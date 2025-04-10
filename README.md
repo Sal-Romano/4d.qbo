@@ -135,7 +135,24 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 
 ## API Endpoints
 
-- **`/status`** (GET): Public endpoint to check if the API is running.
-- **`/test`** (GET): Protected endpoint. Requires a header `secret: <API_KEY>` for authorization.
+- **`/status`** (GET, HEAD): Public endpoint to check if the API is running. Returns a simple status message.
+
+- **`/test`** (GET): Protected endpoint. Requires a header `secret: <API_KEY>` for authorization. Returns a message confirming authorization.
+
+### QBO Endpoints
+
+- **`/qbo/list_invoices`** (GET): Lists all invoices modified from a given date. Requires a `from_date` query parameter. Times are converted to UTC.
+
+- **`/qbo/list_estimates`** (GET): Lists all estimates from a given date. Requires a `from_date` query parameter. Times are converted to UTC.
+
+- **`/qbo/get_invoice`** (GET): Retrieves a specific invoice by its ID (DocNumber). Requires an `id` query parameter. Times are converted to UTC.
+
+### 4D EMR Endpoints
+
+- **`/4demr/get_patient`** (GET): Retrieves patient details. Requires a `patient_id` query parameter.
+
+- **`/4demr/list_appointments`** (GET): Lists appointments for a given date. Requires a `date` query parameter.
+
+Note: All QBO endpoints convert times to UTC (Z) for consistency, as they were originally in PST.
 
 

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from quickbooks import QuickBooks
 from quickbooks.objects.estimate import Estimate
 from quickbooks.objects.invoice import Invoice
+from quickbooks.objects.customer import Customer
 from intuitlib.client import AuthClient
 from intuitlib.enums import Scopes
 import requests
@@ -116,4 +117,22 @@ class QBOManager:
                 'status': invoice.EmailStatus,
                 'last_updated_time': invoice.MetaData.LastUpdatedTime
             })
-        return invoice_list 
+        return invoice_list
+
+    def get_customer_by_display_name(self, display_name: str):
+        """Get a customer by DisplayName."""
+        client = self.get_client()
+        query = f"SELECT * FROM Customer WHERE DisplayName = '{display_name}'"
+        customers = Customer.query(query, qb=client)
+        
+        if not customers:
+            return None
+        
+        customer = customers[0]
+        return {
+            'id': customer.Id,
+            'display_name': customer.DisplayName,
+            'primary_email': customer.PrimaryEmailAddr.Address if customer.PrimaryEmailAddr else None,
+            'balance': float(customer.Balance) if customer.Balance else 0.0,
+            'active': customer.Active
+        } 
