@@ -7,3 +7,4 @@ uvicorn[standard]==0.34.0
 fastapi-limiter==0.1.6
 aioredis==2.0.1
 pytz==2025.2
+httpx==0.28.1

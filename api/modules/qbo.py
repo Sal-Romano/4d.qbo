@@ -12,6 +12,8 @@ from intuitlib.enums import Scopes
 import requests
 import logging
 import xml.etree.ElementTree as ET
+from typing import Dict, Any
+import httpx
 
 # Force reload environment variables
 load_dotenv(override=True)
@@ -22,7 +24,7 @@ CLIENT_SECRET = os.getenv('QBO_CLIENT_SECRET')
 ENVIRONMENT = os.getenv('QBO_ENVIRONMENT', 'production')
 
 class QBOManager:
-    def __init__(self):
+    def __init__(self, api_key: str = None):
         if not all([CLIENT_ID, CLIENT_SECRET]):
             raise ValueError("QBO_CLIENT_ID and QBO_CLIENT_SECRET must be set in .env file")
             
@@ -30,6 +32,7 @@ class QBOManager:
         self.client_secret = CLIENT_SECRET
         self.environment = ENVIRONMENT
         self.token_path = Path('data/qbo_token.json')
+        self.api_key = api_key
         
         self.auth_client = AuthClient(
             client_id=self.client_id,
@@ -187,4 +190,16 @@ class QBOManager:
                 'info': entity_info
             })
         
-        return {'BatchItemResponse': batch_item_responses} 
+        return {'BatchItemResponse': batch_item_responses}
+
+    async def execute_batch(self, batch_request: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a batch request to QBO."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:9742/api.v1/qbo/batch",
+                json=batch_request,
+                headers={"secret": self.api_key},
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json() 
