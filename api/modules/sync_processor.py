@@ -56,7 +56,8 @@ class SyncProcessor:
             result = {
                 "invoice_number": command["invoice_number"],
                 "status": command["status"],
-                "processing_status": "pending"
+                "synced": False,  # Default to not synced
+                "action": "No Action"  # Default action
             }
             results.append(result)
             
@@ -160,7 +161,6 @@ class SyncProcessor:
                                 invoice_exists = "Invoice" in query_response and query_response["Invoice"]
                                 if invoice_exists:
                                     if command["status"] in ["inactive", "active"]:
-                                        result["processing_status"] = "Mismatch. Will remove from Quickbooks."
                                         invoice = query_response.get("Invoice")[0]
                                         if invoice and invoice.get("Id") and invoice.get("SyncToken"):
                                             batch_operations.append({
@@ -169,11 +169,16 @@ class SyncProcessor:
                                                 "Id": invoice["Id"],
                                                 "SyncToken": invoice["SyncToken"]
                                             })
+                                            result["synced"] = False  # Will be set to true after deletion
+                                            result["action"] = "Will delete from QBO"
                                             logging.info(f"Will delete invoice {invoice['Id']}")
                                         else:
+                                            result["synced"] = False
+                                            result["action"] = "Failed: Invoice exists but details not available for deletion"
                                             logging.error("Invoice exists but details not available for deletion")
                                     else:
-                                        result["processing_status"] = "good"
+                                        result["synced"] = True
+                                        result["action"] = "No Action"
                                         logging.info(f"Invoice {command['invoice_number']} exists and status matches")
                                 else:
                                     if command["status"] == "completed":
@@ -183,14 +188,15 @@ class SyncProcessor:
                                         })
                                         logging.info(f"No invoice found, checking customer {command['customer']}")
                                     else:
-                                        result["processing_status"] = "good"
+                                        result["synced"] = True
+                                        result["action"] = "No Action"
                                         logging.info(f"No invoice found for {command['invoice_number']}, status is {command['status']}")
                                         
                             elif "Customer" in operation["Query"]:
                                 customers = query_response.get("Customer", [])
                                 if customers:
                                     customer = customers[0]
-                                    batch_operations.append({
+                                    invoice_payload = {
                                         "bId": f"{b_id}_invoice",
                                         "operation": "create",
                                         "Invoice": {
@@ -200,10 +206,25 @@ class SyncProcessor:
                                             },
                                             "TxnDate": command["date"],
                                             "DocNumber": command["invoice_number"],
-                                            "Line": self.create_line_items(command["lineitems"])
+                                            "Line": self.create_line_items(command["lineitems"]),
+                                            "CustomField": [
+                                                {
+                                                    "DefinitionId": "1",
+                                                    "Name": "Quote Version",
+                                                    "Type": "StringType",
+                                                    "StringValue": str(command.get("version", "1"))
+                                                },
+                                                {
+                                                    "DefinitionId": "2",
+                                                    "Name": "Quoted By",
+                                                    "Type": "StringType",
+                                                    "StringValue": command.get("quoted_by", "")
+                                                }
+                                            ]
                                         }
-                                    })
-                                    logging.info(f"Found customer {customer['DisplayName']}, creating invoice")
+                                    }
+                                    batch_operations.append(invoice_payload)
+                                    logging.info(f"Found customer {customer['DisplayName']}, creating invoice with version {command.get('version', '1')}")
                                 else:
                                     batch_operations.append({
                                         "bId": f"{b_id}_create",
@@ -231,36 +252,62 @@ class SyncProcessor:
                                         logging.error(f"Error detail: {error_detail}")
                                 
                                 command_idx = int(b_id.split("_")[0]) - 1
-                                results[command_idx]["processing_status"] = f"Failed: {error_message}"
+                                results[command_idx]["synced"] = False
+                                results[command_idx]["action"] = f"Failed: {error_message}"
                                 results[command_idx]["error_code"] = error_code
                                 results[command_idx]["error_detail"] = error_detail
                             else:
                                 entity_type = "Customer" if "Customer" in operation else "Invoice"
-                                entity = response.get(entity_type)
-                                if entity:
+                                if operation["operation"] == "delete":
                                     command_idx = int(b_id.split("_")[0]) - 1
-                                    results[command_idx]["processing_status"] = "good"
-                                    if entity_type == "Customer":
-                                        batch_operations.append({
-                                            "bId": f"{b_id}_invoice",
-                                            "operation": "create",
-                                            "Invoice": {
-                                                "CustomerRef": {
-                                                    "value": entity["Id"],
-                                                    "name": entity["DisplayName"]
-                                                },
-                                                "TxnDate": command["date"],
-                                                "DocNumber": command["invoice_number"],
-                                                "Line": self.create_line_items(command["lineitems"])
-                                            }
-                                        })
-                                        logging.info(f"Created customer {entity['DisplayName']}, creating invoice")
-                                    else:
-                                        logging.info(f"Created invoice {entity['DocNumber']}")
+                                    results[command_idx]["synced"] = True
+                                    results[command_idx]["action"] = "Deleted Invoice from QBO"
+                                    logging.info(f"Successfully deleted invoice {operation.get('Id')}")
                                 else:
-                                    logging.error(f"Operation response missing {entity_type}")
-                                    command_idx = int(b_id.split("_")[0]) - 1
-                                    results[command_idx]["processing_status"] = f"Failed: Missing {entity_type} in response"
+                                    entity = response.get(entity_type)
+                                    if entity:
+                                        command_idx = int(b_id.split("_")[0]) - 1
+                                        results[command_idx]["synced"] = True
+                                        if entity_type == "Customer":
+                                            # Create invoice with custom fields for Version and Quoted By
+                                            invoice_payload = {
+                                                "bId": f"{b_id}_invoice",
+                                                "operation": "create",
+                                                "Invoice": {
+                                                    "CustomerRef": {
+                                                        "value": entity["Id"],
+                                                        "name": entity["DisplayName"]
+                                                    },
+                                                    "TxnDate": command["date"],
+                                                    "DocNumber": command["invoice_number"],
+                                                    "Line": self.create_line_items(command["lineitems"]),
+                                                    "CustomField": [
+                                                        {
+                                                            "DefinitionId": "1",
+                                                            "Name": "Quote Version",
+                                                            "Type": "StringType",
+                                                            "StringValue": str(command.get("version", "1"))
+                                                        },
+                                                        {
+                                                            "DefinitionId": "2",
+                                                            "Name": "Quoted By",
+                                                            "Type": "StringType",
+                                                            "StringValue": command.get("quoted_by", "")
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                            batch_operations.append(invoice_payload)
+                                            results[command_idx]["action"] = "Creating Customer and Invoice in QBO"
+                                            logging.info(f"Created customer {entity['DisplayName']}, creating invoice with version {command.get('version', '1')}")
+                                        else:
+                                            results[command_idx]["action"] = "Created Invoice in QBO"
+                                            logging.info(f"Created invoice {entity['DocNumber']}")
+                                    else:
+                                        logging.error(f"Operation response missing {entity_type}")
+                                        command_idx = int(b_id.split("_")[0]) - 1
+                                        results[command_idx]["synced"] = False
+                                        results[command_idx]["action"] = f"Failed: Missing {entity_type} in response"
                         
                     except Exception as e:
                         logging.error(f"Error processing response item: {str(e)}")
@@ -278,5 +325,5 @@ class SyncProcessor:
             json.dump(results, f, indent=2)
             
     def all_results_good(self, results: List[Dict[str, Any]]) -> bool:
-        """Check if all results have 'good' processing status."""
-        return all(result["processing_status"] == "good" for result in results) 
+        """Check if all results have synced status true."""
+        return all(result["synced"] for result in results) 

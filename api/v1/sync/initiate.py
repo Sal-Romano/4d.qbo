@@ -128,10 +128,41 @@ def process_line_items(quote_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def initiate_sync(
-    from_date: str = Query(..., description="Starting date in format YYYY-MM-DDTHH:mm:ss (UTC0)"),
+    from_date: str = Query(None, description="Starting date in format YYYY-MM-DDTHH:mm:ss (UTC0)"),
+    debug: bool = Query(False, description="If true, writes all intermediate files. If false, only writes on error."),
     api_key: str = Depends(get_api_key)
 ):
     """Initiate sync by requesting quotes and processing them into commands."""
+    
+    # If from_date not provided, get it from status.json
+    if not from_date:
+        status_file = os.path.join(PROJECT_ROOT, "api", "data", "ppsa", "status.json")
+        try:
+            with open(status_file, 'r') as f:
+                status_data = json.load(f)
+                from_date = status_data.get("last_successful_sync")
+                if not from_date:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="No from_date provided and no last successful sync found"
+                    )
+                # Convert the stored date format to the required format
+                try:
+                    # Parse the date first (handles both formats)
+                    parsed_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                    # Format it in the required format
+                    from_date = parsed_date.strftime("%Y-%m-%dT%H:%M:%S")
+                except ValueError as e:
+                    logging.error(f"Error parsing date from status file: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid date format in status file"
+                    )
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No from_date provided and no status file found"
+            )
     
     # Validate date format
     try:
@@ -144,13 +175,23 @@ async def initiate_sync(
         )
     
     try:
+        # Record sync start time in UTC - format as YYYY-MM-DDTHH:mm:ss
+        sync_start_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        
         # Ensure the processing directory exists using absolute path
         processing_dir = os.path.join(PROJECT_ROOT, "api", "data", "ppsa", "processing")
+        status_dir = os.path.join(PROJECT_ROOT, "api", "data", "ppsa")
         os.makedirs(processing_dir, exist_ok=True)
+        os.makedirs(status_dir, exist_ok=True)
         logging.info(f"Using processing directory: {processing_dir}")
         
         # Generate epoch timestamp for filenames
         epoch_time = int(time.time())
+        
+        # Initialize file paths
+        quotes_file = os.path.join(processing_dir, f"{epoch_time}_quotes.json")
+        commands_file = os.path.join(processing_dir, f"{epoch_time}_quotes_commands.json")
+        results_file = os.path.join(processing_dir, f"{epoch_time}_quotes_commands_results.json")
         
         # Make an async request to the list_quotes endpoint
         async with httpx.AsyncClient() as client:
@@ -171,11 +212,15 @@ async def initiate_sync(
             
             logging.info(f"Retrieved {len(quotes_list)} quotes")
             
-            # Save the initial quotes list response
-            quotes_file = os.path.join(processing_dir, f"{epoch_time}_quotes.json")
-            logging.info(f"Saving quotes to: {quotes_file}")
-            with open(quotes_file, 'w') as f:
-                json.dump(quotes_list, f, indent=2)
+            # Save the quotes list with sync time if debug mode
+            quotes_data = {
+                "sync_time": sync_start_time,
+                "quotes": quotes_list
+            }
+            if debug:
+                logging.info(f"Debug mode: Saving quotes to: {quotes_file}")
+                with open(quotes_file, 'w') as f:
+                    json.dump(quotes_data, f, indent=2)
             
             # Process each quote with rate limiting
             commands = []
@@ -206,34 +251,53 @@ async def initiate_sync(
                 }
                 commands.append(command)
             
-            # Save the commands
-            commands_file = os.path.join(processing_dir, f"{epoch_time}_quotes_commands.json")
-            logging.info(f"Saving commands to: {commands_file}")
-            with open(commands_file, 'w') as f:
-                json.dump(commands, f, indent=2)
+            # Save the commands if in debug mode
+            if debug:
+                logging.info(f"Debug mode: Saving commands to: {commands_file}")
+                with open(commands_file, 'w') as f:
+                    json.dump(commands, f, indent=2)
             
             # Process commands with sync processor
             processor = SyncProcessor(api_key)
             results = await processor.process_commands(commands)
             
-            # Save results
-            results_file = os.path.join(processing_dir, f"{epoch_time}_quotes_commands_results.json")
-            processor.save_results(results, results_file)
-            
-            # Check if all results are good
-            if not processor.all_results_good(results):
+            # Check if all results are good and update status file
+            if processor.all_results_good(results):
+                # Update status.json with last successful sync
+                status_file = os.path.join(status_dir, "status.json")
+                status_data = {
+                    "last_successful_sync": sync_start_time
+                }
+                with open(status_file, 'w') as f:
+                    json.dump(status_data, f, indent=2)
+                logging.info(f"Updated status file with successful sync time: {sync_start_time}")
+                
+                # Only save results file if in debug mode
+                if debug:
+                    processor.save_results(results, results_file)
+                    
+                return {
+                    "detail": "Quotes processed successfully",
+                    "results": results,
+                    "debug_info": {
+                        "quotes_file": f"{epoch_time}_quotes.json",
+                        "commands_file": f"{epoch_time}_quotes_commands.json",
+                        "results_file": f"{epoch_time}_quotes_commands_results.json",
+                        "processing_dir": processing_dir
+                    } if debug else None
+                }
+            else:
+                # On error, save all files regardless of debug mode
+                with open(quotes_file, 'w') as f:
+                    json.dump(quotes_data, f, indent=2)
+                with open(commands_file, 'w') as f:
+                    json.dump(commands, f, indent=2)
+                processor.save_results(results, results_file)
+                
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Not all commands were processed successfully"
                 )
-        
-        return {
-            "detail": "Quotes processed successfully",
-            "quotes_file": f"{epoch_time}_quotes.json",
-            "commands_file": f"{epoch_time}_quotes_commands.json",
-            "results_file": f"{epoch_time}_quotes_commands_results.json",
-            "processing_dir": processing_dir
-        }
         
     except httpx.RequestError as e:
         logging.error(f"Request failed: {str(e)}")
