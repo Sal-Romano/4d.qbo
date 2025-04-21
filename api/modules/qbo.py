@@ -150,10 +150,11 @@ class QBOManager:
             environment=self.environment,
             company_id=self.auth_client.realm_id
         )
-        url = f"https://quickbooks.api.intuit.com/v3/company/{client.company_id}/batch"
+        url = f"https://quickbooks.api.intuit.com/v3/company/{client.company_id}/batch?minorversion=75"
         headers = {
             'Authorization': f'Bearer {client.auth_client.access_token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         }
         response = requests.post(url, headers=headers, json=batch_payload)
         
@@ -163,34 +164,8 @@ class QBOManager:
         
         response.raise_for_status()
         
-        # Parse the XML response
-        root = ET.fromstring(response.text)
-        batch_item_responses = []
-        
-        for batch_item in root.findall('.//{http://schema.intuit.com/finance/v3}BatchItemResponse'):
-            bId = batch_item.get('bId')
-            fault = batch_item.find('.//{http://schema.intuit.com/finance/v3}Fault')
-            if fault is None:
-                # Success case
-                entity = batch_item[0]  # Get the first child element, which is the entity
-                entity_info = {child.tag.split('}')[1]: child.text for child in entity}
-                status = 'success'
-                error = None
-            else:
-                # Failure case
-                error_detail = fault.find('.//{http://schema.intuit.com/finance/v3}Detail').text
-                entity_info = {}
-                status = 'failed'
-                error = error_detail
-            
-            batch_item_responses.append({
-                'bId': bId,
-                'status': status,
-                'error': error,
-                'info': entity_info
-            })
-        
-        return {'BatchItemResponse': batch_item_responses}
+        # Parse the JSON response
+        return response.json()
 
     async def execute_batch(self, batch_request: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a batch request to QBO."""

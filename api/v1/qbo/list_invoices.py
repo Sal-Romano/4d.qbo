@@ -4,10 +4,11 @@ from fastapi_limiter.depends import RateLimiter
 import logging
 from dateutil import parser
 import pytz
+from fastapi import status
 
 router = APIRouter()
 
-@router.get("/list_invoices", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+@router.get("/list_invoices", dependencies=[Depends(RateLimiter(times=30, seconds=60))], status_code=status.HTTP_200_OK)
 async def list_invoices(from_date: str = Query(..., description="List invoices from this date")):
     """List invoices from a given date."""
     try:

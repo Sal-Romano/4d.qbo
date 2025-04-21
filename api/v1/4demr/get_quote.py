@@ -8,7 +8,7 @@ from api.modules.emr import FourDManager
 router = APIRouter()
 
 # Make id optional with Query(None) so auth can be checked first
-@router.get("/get_quote", dependencies=[Depends(RateLimiter(times=5, seconds=60))], status_code=status.HTTP_200_OK)
+@router.get("/get_quote", dependencies=[Depends(RateLimiter(times=30, seconds=60))], status_code=status.HTTP_200_OK)
 async def get_quote(id: str = Query(None), request: Request = None, secret: str = Header(None)):
     """Get quote details by ID from 4D EMR system"""
     
