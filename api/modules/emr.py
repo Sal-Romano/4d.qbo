@@ -6,6 +6,7 @@ import sys
 import logging
 import requests
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -76,4 +77,30 @@ class FourDManager:
             return {"error": "From date cannot be empty."}
         
         logging.info(f"Fetching quotes list from date: {from_date}...")
-        return self._make_request("quotes/list", params={"fromDate": from_date}) 
+        return self._make_request("quotes/list", params={"fromDate": from_date})
+
+    def list_charges(self, begin_date: str, end_date: str) -> dict:
+        """Fetch patient charges between two dates.
+        
+        Args:
+            begin_date (str): Starting date in format YYYY-MM-DD
+            end_date (str): Ending date in format YYYY-MM-DD
+        
+        Returns:
+            dict: List of charges or error message
+        """
+        if not begin_date or not end_date:
+            return {"error": "Both begin_date and end_date are required."}
+        
+        # Validate date format
+        try:
+            datetime.strptime(begin_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            return {"error": "Invalid date format. Required format: YYYY-MM-DD"}
+        
+        logging.info(f"Fetching charges list from {begin_date} to {end_date}...")
+        return self._make_request("reports/charges", params={
+            "beginDate": begin_date,
+            "endDate": end_date
+        }) 
