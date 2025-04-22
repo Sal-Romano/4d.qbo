@@ -36,12 +36,13 @@ class SyncProcessor:
         """Create properly formatted line items for QuickBooks."""
         line_items = []
         for item in items:
+            # Preserve the original line item structure since ItemRef is already set
             line_items.append({
                 "DetailType": "SalesItemLineDetail",
                 "Amount": item["Amount"],
                 "Description": item["Description"],
                 "SalesItemLineDetail": {
-                    "ItemRef": self.get_item_ref(item)
+                    "ItemRef": item["SalesItemLineDetail"]["ItemRef"]
                 }
             })
         return line_items

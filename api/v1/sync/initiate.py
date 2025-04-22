@@ -76,7 +76,8 @@ def process_line_items(quote_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "Description": proc["ProcedureName"],
             "SalesItemLineDetail": {
                 "ItemRef": {
-                    "value": "1000100202"
+                    "value": "1010000021",
+                    "name": "Procedure"
                 }
             }
         })
@@ -90,7 +91,8 @@ def process_line_items(quote_data: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "Description": supply["ItemTitle"],
                 "SalesItemLineDetail": {
                     "ItemRef": {
-                        "value": "66"
+                        "value": "66",
+                        "name": "Supplies Charge"
                     }
                 }
             })
@@ -104,7 +106,8 @@ def process_line_items(quote_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "Description": f"{anesthesia_group_name} Fee" if anesthesia_group_name else "Anesthesia Fee",
             "SalesItemLineDetail": {
                 "ItemRef": {
-                    "value": "68"
+                    "value": "68",
+                    "name": "Anesthesia Fee"
                 }
             }
         })
@@ -117,7 +120,8 @@ def process_line_items(quote_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "Description": "PSC Facility Fee",
             "SalesItemLineDetail": {
                 "ItemRef": {
-                    "value": "65"
+                    "value": "65",
+                    "name": "OR Facility Fee"
                 }
             }
         })
