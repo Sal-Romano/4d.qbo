@@ -4,7 +4,7 @@ This project provides a sync bridge between a specific 4D EMR instance and a Qui
 
 ## Overview
 
-The core functionality resides in a FastAPI application (`api/main.py`) that will eventually handle the synchronization logic. The `scripts/` directory contains utilities for initial setup and testing API connections.
+The core functionality resides in a FastAPI application (`api/main.py`) that serves endpoints (`api/v1`) to handle the synchronization logic. The `scripts/` directory contains utilities for initial setup and testing API connections.
 
 ## Requirements
 
@@ -14,8 +14,7 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
     - QuickBooks Online API
 - A server environment to host the FastAPI application.
 - Redis 6.0.16+ 
-- A reverse proxy (like Nginx) is recommended for production.
-- A process manager (like systemd) is recommended for production.
+- Nginx or another reverse proxy
 
 ## Setup
 
@@ -55,9 +54,9 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 ├── api/                    # Main FastAPI application
 │   ├── main.py            # Application entry point, auth, and router setup
 │   ├── data/              # Persistent data storage
-│   │   └── ppsa/          # Price Quote Sync data
+│   │   └── ppsa/          # Company/realm directory
 │   │       ├── status.json     # Tracks last successful sync
-│   │       └── processing/     # Temporary processing files
+│   │       └── processing/     # Temporary processing directory
 │   ├── modules/           # Core business logic and integrations
 │   │   ├── emr.py         # 4D EMR integration
 │   │   ├── qbo.py         # QuickBooks Online integration
@@ -84,75 +83,6 @@ The application follows a modular structure where:
 - `api/v1/` contains all API endpoints, organized by feature
 - `api/data/` stores persistent data and processing files
 - `scripts/` contains utilities for initial setup and testing (not used in production)
-
-For detailed API endpoint documentation and usage, refer to the API Endpoints section below.
-
-## Running the Application (Production Example)
-
-1.  **FastAPI Server:**
-    - The application is run using an ASGI server like Uvicorn.
-    - The entry point is `api/main.py`.
-
-2.  **Process Manager (Systemd Example):**
-    - Create a service file (e.g., `/etc/systemd/system/4dqbo.service`) to manage the Uvicorn process.
-      ```ini
-      [Unit]
-      Description=4D QBO Sync Service
-      After=network.target
-
-      [Service]
-      User=<your_service_user> # e.g., www-data
-      Group=<your_service_group> # e.g., www-data
-      WorkingDirectory=/path/to/your/project/root
-      # Ensure .venv is activated or python/uvicorn are globally accessible
-      ExecStart=/path/to/your/project/root/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 9742
-      Restart=always
-
-      [Install]
-      WantedBy=multi-user.target
-      ```
-    - Enable and start the service:
-      ```bash
-      sudo systemctl enable 4dqbo.service
-      sudo systemctl start 4dqbo.service
-      ```
-
-3.  **Reverse Proxy (Nginx Example):**
-    - Configure Nginx (or another reverse proxy) to handle incoming requests and forward them to the FastAPI application running on the configured `PORT`.
-    - Create a site configuration (e.g., `/etc/nginx/sites-available/your-domain.com`):
-      ```nginx
-      server {
-          listen 80;
-          server_name your-domain.com; # Replace with your actual domain
-
-          # Optional: Redirect HTTP to HTTPS
-          # location / {
-          #     return 301 https://$host$request_uri;
-          # }
-
-          # If using HTTPS (Recommended):
-          # listen 443 ssl;
-          # server_name your-domain.com;
-          # ssl_certificate /path/to/your/fullchain.pem;
-          # ssl_certificate_key /path/to/your/privkey.pem;
-          # include /etc/letsencrypt/options-ssl-nginx.conf; # Recommended Certbot options
-          # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # Recommended Certbot options
-
-          location / {
-              proxy_pass http://127.0.0.1:9742; # Forward to FastAPI
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;
-          }
-      }
-      ```
-    - Enable the site and reload Nginx:
-      ```bash
-      sudo ln -s /etc/nginx/sites-available/your-domain.com /etc/nginx/sites-enabled/
-      sudo nginx -t
-      sudo systemctl reload nginx
-      ```
 
 ## API Endpoints
 
