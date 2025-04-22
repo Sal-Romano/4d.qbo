@@ -2,6 +2,7 @@ from typing import List, Dict, Any
 import json
 import logging
 import httpx
+import asyncio
 from .qbo import QBOManager
 
 class SyncProcessor:
@@ -9,6 +10,10 @@ class SyncProcessor:
         self.api_key = api_key
         self.qbo = QBOManager(api_key=api_key)
         self.verbose = verbose
+        # QBO allows 40 requests per minute, so we'll space them out
+        self.batch_delay = 1.5  # 1.5 seconds between requests (40 per minute)
+        self.max_retries = 3
+        self.retry_delay = 60  # Wait 60 seconds after hitting rate limit
         # Map standard service items to QuickBooks IDs
         self.service_items = {
             "Anesthesia Fee": {"value": "68", "name": "Anesthesia Fee"},
@@ -47,6 +52,34 @@ class SyncProcessor:
             })
         return line_items
         
+    async def execute_batch_with_retry(self, batch_request: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a batch request with retry logic for rate limits."""
+        for attempt in range(self.max_retries):
+            try:
+                if attempt > 0:
+                    logging.info(f"Retry attempt {attempt} for batch request")
+                
+                batch_response = await self.qbo.execute_batch(batch_request)
+                
+                # Add standard delay between successful requests
+                await asyncio.sleep(self.batch_delay)
+                
+                return batch_response
+                
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:  # Too Many Requests
+                    if attempt < self.max_retries - 1:
+                        retry_after = int(e.response.headers.get('Retry-After', self.retry_delay))
+                        logging.warning(f"Rate limit hit, waiting {retry_after} seconds before retry {attempt + 1}")
+                        await asyncio.sleep(retry_after)
+                        continue
+                    else:
+                        logging.error("Max retries reached for rate limit")
+                raise
+            except Exception as e:
+                logging.error(f"Error executing batch request: {str(e)}")
+                raise
+
     async def process_commands(self, commands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Process commands and return results."""
         results = []
@@ -115,12 +148,9 @@ class SyncProcessor:
             else:
                 ops = [op.get("operation", "query") for op in batch_request["BatchItemRequest"]]
                 logging.info(f"Sending batch request with operations: {ops}")
-                
+            
             try:
-                batch_response = await self.qbo.execute_batch(batch_request)
-                
-                if self.verbose:
-                    logging.info(f"Received batch response: {json.dumps(batch_response, indent=2)}")
+                batch_response = await self.execute_batch_with_retry(batch_request)
                 
                 if not isinstance(batch_response, dict):
                     logging.error(f"Invalid batch response type: {type(batch_response)}")
@@ -210,7 +240,7 @@ class SyncProcessor:
                                             "Line": self.create_line_items(command["lineitems"]),
                                             "CustomField": [
                                                 {
-                                                    "DefinitionId": "1",
+                                                    "DefinitionId": "3",
                                                     "Name": "Quote Version",
                                                     "Type": "StringType",
                                                     "StringValue": str(command.get("version", "1"))

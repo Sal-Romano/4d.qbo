@@ -6,7 +6,7 @@ from fastapi import status
 
 router = APIRouter()
 
-@router.post("/batch", dependencies=[Depends(RateLimiter(times=5, seconds=60))], status_code=status.HTTP_200_OK)
+@router.post("/batch", dependencies=[Depends(RateLimiter(times=30, seconds=60))], status_code=status.HTTP_200_OK)
 async def process_batch(request: Request):
     """Process a batch of requests to the QuickBooks Online API."""
     try:
