@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 from fastapi_limiter.depends import RateLimiter
-from api.dependencies import get_api_key
+from api.main import get_api_key
 
 router = APIRouter()
 

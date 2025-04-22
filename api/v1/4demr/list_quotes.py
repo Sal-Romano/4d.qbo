@@ -3,7 +3,7 @@ from fastapi_limiter.depends import RateLimiter
 import logging
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
-from api.dependencies import get_api_key
+from api.main import get_api_key
 from api.modules.emr import FourDManager
 
 router = APIRouter()

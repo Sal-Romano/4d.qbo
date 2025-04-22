@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 import os
 from dotenv import load_dotenv
 from fastapi_limiter import FastAPILimiter
@@ -7,16 +8,16 @@ import logging
 import aioredis
 from contextlib import asynccontextmanager
 import sys
-import importlib.util
+import importlib
+import pkgutil
+import inspect
+from fastapi import APIRouter
 
 # Add the current directory to path to ensure imports work regardless of how the script is run
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
-
-# Use absolute import instead of relative import
-from api.router_manager import discover_routers
 
 # Load environment variables
 load_dotenv()
@@ -36,6 +37,81 @@ logging.basicConfig(
 API_PORT = int(os.getenv("API_PORT", 9742))  # Default to 9742 if not set
 API_PREFIX = os.getenv("API_PREFIX", "/api.v1")  # Default prefix for all endpoints
 API_KEY = os.getenv("API_KEY")  # API Key for authentication
+
+# API Key authentication setup
+API_KEY_NAME = "secret"  # Name of the header to check
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(key: str = Depends(api_key_header)):
+    """Dependency function to check API key."""
+    if key == API_KEY:
+        return key
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+def discover_routers(app: FastAPI, api_prefix: str = "/api.v1", package_name: str = "api.v1"):
+    """
+    Discovers and registers all routers in the specified package.
+    """
+    print(f"Discovering routers in {package_name}...")
+    logging.info(f"Discovering routers in {package_name}...")
+    
+    # Import the package (api.v1)
+    package = importlib.import_module(package_name)
+    package_path = os.path.dirname(package.__file__)
+    
+    # Register main endpoints.py in v1 package if it exists
+    if hasattr(package, "endpoints") and hasattr(package.endpoints, "router"):
+        print(f"Mounting main endpoints router from {package_name}.endpoints at {api_prefix}")
+        logging.info(f"Mounting main endpoints router from {package_name}.endpoints")
+        app.include_router(package.endpoints.router, prefix=api_prefix)
+    
+    # Recursively discover routers in all subpackages
+    discovered = pkgutil.walk_packages(path=[package_path], prefix=f"{package_name}.")
+    
+    for _, module_name, is_pkg in discovered:
+        if not is_pkg:  # If it's a module (not a package)
+            try:
+                module = importlib.import_module(module_name)
+                
+                # Look for router objects in the module
+                for attr_name, attr_value in inspect.getmembers(module):
+                    if isinstance(attr_value, APIRouter):
+                        router_path = module_name.replace(package_name, "")
+                        if router_path.endswith(".py"):
+                            router_path = router_path[:-3]
+                        
+                        # Get just the directory part for the router prefix
+                        last_dot = router_path.rfind('.')
+                        if last_dot != -1:
+                            dir_path = router_path[:last_dot]
+                            dir_path = dir_path.replace(".", "/")
+                            url_path = f"{api_prefix}{dir_path}"
+                        else:
+                            dir_path = router_path.replace(".", "/")
+                            url_path = f"{api_prefix}{dir_path}"
+                        
+                        print(f"Mounting router from {module_name} at {url_path}")
+                        logging.info(f"Mounting router from {module_name} at {url_path}")
+                        
+                        # Show registered routes on the router
+                        print(f"Routes on this router:")
+                        for route in attr_value.routes:
+                            full_path = f"{url_path}{route.path}"
+                            print(f"  - {', '.join(route.methods)} {full_path}")
+                            logging.info(f"Registered route: {', '.join(route.methods)} {full_path}")
+                        
+                        app.include_router(attr_value, prefix=url_path)
+            except Exception as e:
+                error_msg = f"Error importing module {module_name}: {e}"
+                print(error_msg)
+                logging.error(error_msg)
+    
+    print("Router discovery complete")
+    logging.info("Router discovery complete")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

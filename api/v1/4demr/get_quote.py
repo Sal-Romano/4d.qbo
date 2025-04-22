@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Header, 
 from fastapi_limiter.depends import RateLimiter
 import logging
 import os
-from api.dependencies import get_api_key
+from api.main import get_api_key
 from api.modules.emr import FourDManager
 
 router = APIRouter()

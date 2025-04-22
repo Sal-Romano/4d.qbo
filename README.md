@@ -53,18 +53,39 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 ```
 .
 ├── api/                    # Main FastAPI application
-│   └── main.py
-├── scripts/                # Utilities for setup & testing (not for production use)
-│   ├── qbo_manager.py
-│   ├── qbo_callback_server.py
-│   └── 4d_manager.py
-├── data/                   # Stores persistent data like OAuth tokens
-├── docs/                   # Documentation
-├── logs/                   # Log files 
-├── .env-sample             # Sample environment file
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
+│   ├── main.py            # Application entry point, auth, and router setup
+│   ├── data/              # Persistent data storage
+│   │   └── ppsa/          # Price Quote Sync data
+│   │       ├── status.json     # Tracks last successful sync
+│   │       └── processing/     # Temporary processing files
+│   ├── modules/           # Core business logic and integrations
+│   │   ├── emr.py         # 4D EMR integration
+│   │   ├── qbo.py         # QuickBooks Online integration
+│   │   └── sync_processor.py  # Quote to Invoice sync logic
+│   └── v1/               # API version 1 endpoints
+│       ├── endpoints.py   # Core endpoints (status, test)
+│       ├── 4demr/        # 4D EMR specific endpoints
+│       ├── qbo/          # QuickBooks Online endpoints
+│       └── sync/         # Synchronization endpoints
+├── scripts/               # Setup & testing utilities (not for production)
+│   ├── qbo_manager.py     # QBO connection testing
+│   ├── qbo_callback_server.py  # OAuth setup utility
+│   └── 4d_manager.py      # 4D EMR connection testing
+├── docs/                  # Documentation
+├── logs/                  # Log files
+├── .env-sample           # Sample environment configuration
+├── requirements.txt      # Python dependencies
+└── README.md            # This file
 ```
+
+The application follows a modular structure where:
+- `api/main.py` handles application setup, authentication, and router discovery
+- `api/modules/` contains the core business logic and integration code
+- `api/v1/` contains all API endpoints, organized by feature
+- `api/data/` stores persistent data and processing files
+- `scripts/` contains utilities for initial setup and testing (not used in production)
+
+For detailed API endpoint documentation and usage, refer to the API Endpoints section below.
 
 ## Running the Application (Production Example)
 
@@ -146,6 +167,8 @@ The core functionality resides in a FastAPI application (`api/main.py`) that wil
 - **`/qbo/list_estimates`** (GET): Lists all estimates from a given date. Requires a `from_date` query parameter. Times are converted to UTC.
 
 - **`/qbo/get_invoice`** (GET): Retrieves a specific invoice by its ID (DocNumber). Requires an `id` query parameter. Times are converted to UTC.
+
+- **`/qbo/batch`** (POST): Posts a batch job to QBO. [Follow QBO /batch payload guidelines](https://www.developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/batch#the-batch-object)
 
 ### 4D EMR Endpoints
 

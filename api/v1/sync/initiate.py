@@ -7,7 +7,7 @@ import os
 import time
 import asyncio
 from fastapi_limiter.depends import RateLimiter
-from api.dependencies import get_api_key
+from api.main import get_api_key
 from typing import List, Dict, Any
 import pytz
 from api.modules.sync_processor import SyncProcessor
