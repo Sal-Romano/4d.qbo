@@ -33,16 +33,18 @@ class FourDManager:
         """Helper function to make API requests."""
         url = f"{self.base_url}/{endpoint}"
         try:
+            logging.info(f"Making {method} request to: {url}")
+            # Remove sensitive payload logging
+            
             response = requests.request(method, url, headers=self.headers, params=params)
+            logging.info(f"Response status code: {response.status_code}")
+            
             response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
             return response.json()
         except requests.exceptions.RequestException as e:
             logging.error(f"API Request Error: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                try:
-                    logging.error(f"Response Body: {e.response.text}")
-                except Exception:
-                    logging.error("Could not read response body.")
+                logging.error(f"Response status code: {e.response.status_code}")
             return {"error": str(e)}  # Return a dictionary indicating error
 
     def list_recent_appointments(self) -> dict:
@@ -58,7 +60,14 @@ class FourDManager:
         return self._make_request(f"patients/{patient_id}")
         
     def get_quote(self, quote_id: str) -> dict:
-        """Fetch quote details by ID."""
+        """Fetch quote details by ID.
+        
+        Args:
+            quote_id (str): The quote number to retrieve
+            
+        Returns:
+            dict: Quote details or error message
+        """
         if not quote_id:
             return {"error": "Quote ID cannot be empty."}
         logging.info(f"Fetching quote details for ID: {quote_id}...")
