@@ -24,7 +24,12 @@ REQUEST_DELAY = 0.5  # seconds between regular requests
 
 def convert_to_est(date_str: str) -> str:
     """Convert UTC date string to EST date string in YYYY-MM-DD format."""
-    utc_dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    try:
+        # First try with microseconds
+        utc_dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        # If that fails, try without microseconds
+        utc_dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     est_tz = pytz.timezone('America/New_York')
     est_dt = utc_dt.astimezone(est_tz)
     return est_dt.strftime("%Y-%m-%d")
