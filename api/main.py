@@ -122,11 +122,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Add a direct status route - only keep the version without trailing slash
+@app.get(f"{API_PREFIX}/status", status_code=status.HTTP_200_OK)
+async def direct_status():
+    return {"status": "API is online"}
+
 # Add middleware to handle unauthorized requests consistently
 @app.middleware("http")
 async def check_auth_middleware(request: Request, call_next):
     # Allow status endpoint without auth
-    if request.url.path.endswith("/status"):
+    if "/status" in request.url.path:
         return await call_next(request)
     
     # Check for auth header for all other endpoints
@@ -144,7 +149,9 @@ async def check_auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 # Discover and register all routers
+logging.info(f"Starting router discovery with API_PREFIX={API_PREFIX}")
 discover_routers(app, API_PREFIX)
+logging.info("Router discovery done")
 
 if __name__ == "__main__":
     import uvicorn
