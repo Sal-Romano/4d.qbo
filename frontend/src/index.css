@@ -1,0 +1,113 @@
+:root {
+  --primary: #00B8FF;
+  --background: #020B1C;
+  --surface: #0A1628;
+  --border-color: #1A2942;
+  --text: #fff;
+  --text-muted: #8B9CB3;
+  --error-color: #ff4444;
+  --success-color: #30d158;
+  --shadow-color: rgba(0, 184, 255, 0.1);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --primary-color-rgb: 0, 184, 255;
+  --background-dark-rgb: 2, 11, 28;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="light"] {
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --border-color: #e1e5eb;
+  --text: #020B1C;
+  --text-muted: #5a6a83;
+  --input-bg: rgba(255, 255, 255, 1);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+th {
+  background-color: var(--surface);
+}
+
+tr:nth-child(even) {
+  background-color: rgba(10, 22, 40, 0.5);
+}
+
+tr:hover {
+  background-color: rgba(26, 41, 66, 0.5);
+}
+
+.success {
+  color: var(--success-color);
+}
+
+.error {
+  color: var(--error-color);
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.25s;
+  margin-right: 1rem;
+}
+
+button:hover {
+  border-color: var(--primary);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+a {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: #009dd9;
+} 
