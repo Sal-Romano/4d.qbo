@@ -27,11 +27,15 @@ LOG_DIR = os.getenv('LOG_DIR', './logs')
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
+# Configure logging with specific level for watchfiles
 logging.basicConfig(
     filename=os.path.join(LOG_DIR, 'api.log'),
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Suppress watchfiles INFO messages
+logging.getLogger('watchfiles.main').setLevel(logging.WARNING)
 
 # Fixed port configuration from .env file
 API_PORT = int(os.getenv("API_PORT", 9742))  # Default to 9742 if not set
@@ -162,5 +166,5 @@ if __name__ == "__main__":
         host="0.0.0.0", 
         port=API_PORT,
         reload=True,  # Enable auto-reload
-        reload_dirs=["api"],  # Watch only the api directory
+        reload_dirs=["api"]  # Watch only the api directory
     ) 
